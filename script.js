@@ -2,51 +2,52 @@
     const LOCAL_STORAGE_KEY = "carouselProducts";
 
     const init = () => {
-      if (!isProductPage()) return;
+        // HTML yapısını oluştur
+        const htmlContent = `
+        <div class="product-detail"></div>`;
+        document.body.innerHTML = htmlContent;
 
-      const serverUrlLocal = "http://127.0.0.1:8080";  // Local Server URL
-      const serverUrlExternal = "http://192.168.1.103:8080";  // External Server URL
-      
-      const PRODUCT_API_URL = "https://gist.githubusercontent.com/sevindi/5765c5812bbc8238a38b3cf52f233651/raw/56261d81af8561bf0a7cf692fe572f9e1e91f372/products.json"
-      const products = getProducts(PRODUCT_API_URL);
-      products.then((data) => {
-        data.forEach((product) => product.currency = 'TRY'); // manipulating the data to set the currency as a "TRY"
-        // You can delete here and use the currency which is existing in data. Now, there is no currency data in PRODUCT_API_URL.
-        console.log('data',data);
-        buildHTML(data);
-        buildCSS();
-        setEvents(data);
-        displayFavorites();
-      });
+        // Carousel'i başlat
+        if (!isProductPage()) return;
+
+        const PRODUCT_API_URL =
+            "https://gist.githubusercontent.com/sevindi/5765c5812bbc8238a38b3cf52f233651/raw/56261d81af8561bf0a7cf692fe572f9e1e91f372/products.json";
+        const products = getProducts(PRODUCT_API_URL);
+        products.then((data) => {
+            data.forEach((product) => (product.currency = "TRY"));
+            buildHTML(data);
+            buildCSS();
+            setEvents(data);
+            displayFavorites();
+        });
     };
 
     const isProductPage = () => {
-      return document.querySelector(".product-detail") !== null;
+        return document.querySelector(".product-detail") !== null;
     };
 
     const getProducts = async (url) => {
-      const cachedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (cachedProducts) {
-        return JSON.parse(cachedProducts);
-      }
+        const cachedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (cachedProducts) {
+            return JSON.parse(cachedProducts);
+        }
 
-      const response = await fetch(url);
-      const products = await response.json();
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
-      return products;
+        const response = await fetch(url);
+        const products = await response.json();
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
+        return products;
     };
 
     const buildHTML = (products) => {
-      // <span>${product.price} ${product.currency ? product.currency : 'TRY'}</span>  means if currency data is null , set this data as a TRY. 
-      const containerHTML = `
+        const containerHTML = `
         <div class="carousel-container">
           <h1>You Might Also Like</h1>
           <div class="carousel-wrapper">
             <button class="carousel-nav left">&#x2039;</button>
             <div class="carousel-track">
               ${products
-                .map(
-                  (product) => `
+                  .map(
+                      (product) => `
                 <div class="carousel-item" data-id="${product.id}">
                   <a href="${product.url}" target="_blank">
                     <img src="${product.img}" alt="${product.name}" />
@@ -55,18 +56,17 @@
                   </a>
                   <div class="heart-icon ${isFavorited(product.id) ? 'favorited' : ''}">&#x2764;</div>
                 </div>`
-                )
-                .join("")}
+                  )
+                  .join("")}
             </div>
             <button class="carousel-nav right">&#x203A;</button>
           </div>
         </div>`;
-
-      $(".product-detail").after(containerHTML);
+        document.querySelector(".product-detail").insertAdjacentHTML("afterend", containerHTML);
     };
 
     const buildCSS = () => {
-      const css = `
+        const css = `
       a{text-decoration : none;}
       .carousel-container {
         margin: 20px 0;
@@ -166,95 +166,91 @@
         height: 40px;
         border-radius: 5px;
         object-fit: cover;
-}
-
+        }
        `;
-
-      $("<style>").addClass("carousel-style").html(css).appendTo("head");
+        const style = document.createElement("style");
+        style.textContent = css;
+        document.head.appendChild(style);
     };
 
     const setEvents = (products) => {
-      const $track = $(".carousel-track");
-      const $items = $(".carousel-item");
+        const $track = document.querySelector(".carousel-track");
+        const $items = document.querySelectorAll(".carousel-item");
+        let currentOffset = 0;
+        const itemWidth = $items[0].offsetWidth;
 
-      let currentOffset = 0;
-      const itemWidth = $items.outerWidth(true);
+        document.querySelector(".carousel-nav.left").addEventListener("click", () => {
+            if (currentOffset < 0) {
+                currentOffset += itemWidth;
+                $track.style.transform = `translateX(${currentOffset}px)`;
+            }
+        });
 
-      $(".carousel-nav.left").on("click", () => {
-        if (currentOffset < 0) {
-          currentOffset += itemWidth;
-          $track.css("transform", `translateX(${currentOffset}px)`);
-        }
-      });
+        document.querySelector(".carousel-nav.right").addEventListener("click", () => {
+            const maxOffset = -(itemWidth * ($items.length - 6.5));
+            if (currentOffset > maxOffset) {
+                currentOffset -= itemWidth;
+                $track.style.transform = `translateX(${currentOffset}px)`;
+            }
+        });
 
-      $(".carousel-nav.right").on("click", () => {
-        const maxOffset = -(itemWidth * ($items.length - 6.5));
-        if (currentOffset > maxOffset) {
-          currentOffset -= itemWidth;
-          $track.css("transform", `translateX(${currentOffset}px)`);
-        }
-      });
-
-      $(".heart-icon").on("click", function () {
-        const $icon = $(this);
-        $icon.toggleClass("favorited");
-        const id = $icon.closest(".carousel-item").data("id");
-
-        const productIndex = products.findIndex((product) => product.id === id);
-        if (productIndex !== -1) {
-          products[productIndex].isFavorited = $icon.hasClass("favorited");
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
-          displayFavorites();
-        }
-      });
+        document.querySelectorAll(".heart-icon").forEach((icon) =>
+            icon.addEventListener("click", function () {
+                const id = this.closest(".carousel-item").dataset.id;
+                this.classList.toggle("favorited");
+                const productIndex = products.findIndex((product) => product.id === id);
+                if (productIndex !== -1) {
+                    products[productIndex].isFavorited = this.classList.contains("favorited");
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(products));
+                    displayFavorites();
+                }
+            })
+        );
     };
 
     const isFavorited = (id) => {
-      const cachedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (cachedProducts) {
-        const products = JSON.parse(cachedProducts);
-        const product = products.find((p) => p.id === id);
-        return product ? product.isFavorited : false;
-      }
-      return false;
+        const cachedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (cachedProducts) {
+            const products = JSON.parse(cachedProducts);
+            const product = products.find((p) => p.id === id);
+            return product ? product.isFavorited : false;
+        }
+        return false;
     };
+
     const displayFavorites = () => {
-      const cachedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (cachedProducts) {
-          const products = JSON.parse(cachedProducts);
-          const favoriteProducts = products.filter(product => product.isFavorited);
+        const cachedProducts = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (cachedProducts) {
+            const products = JSON.parse(cachedProducts);
+            const favoriteProducts = products.filter((product) => product.isFavorited);
 
-          if (favoriteProducts.length > 0) {
-              if (!$(".favorites-container").length) {
-                  const favoritesHTML = `
-                      <div class="favorites-container">
-                          <h2>Favorilerim</h2>
-                          ${favoriteProducts.map(
-                              product => `
-                              <div class="favorite-item">
-                                  <img src="${product.img}" alt="${product.name}" />
-                                  <p>${product.name}</p>
-                              </div>`
-                          ).join('')}
-                      </div>`;
-
-                  $(".carousel-container").after(favoritesHTML);
-              } else {
-                  $(".favorites-container").html(`
+            if (favoriteProducts.length > 0) {
+                let favoritesHTML = `
+                  <div class="favorites-container">
                       <h2>Favorilerim</h2>
-                      ${favoriteProducts.map(
-                          product => `
+                      ${favoriteProducts
+                          .map(
+                              (product) => `
                           <div class="favorite-item">
                               <img src="${product.img}" alt="${product.name}" />
                               <p>${product.name}</p>
                           </div>`
-                      ).join('')}
-                  `);
-              }
-          } else {
-              $(".favorites-container").remove();
-          }
-      }
-  };
+                          )
+                          .join("")}
+                  </div>`;
+                if (!document.querySelector(".favorites-container")) {
+                    document
+                        .querySelector(".carousel-container")
+                        .insertAdjacentHTML("afterend", favoritesHTML);
+                } else {
+                    document.querySelector(".favorites-container").innerHTML = favoritesHTML;
+                }
+            } else {
+                const favoritesContainer = document.querySelector(".favorites-container");
+                if (favoritesContainer) favoritesContainer.remove();
+            }
+        }
+    };
+
     init();
 })();
